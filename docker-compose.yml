@@ -1,0 +1,49 @@
+# Personal AI Voice Diary — docker-compose for Synology DSM 6.2
+#
+# Usage (from /volume1/docker/diary/):
+#   docker-compose build
+#   docker-compose up -d
+#   docker-compose logs -f   # tail
+#   docker-compose down     # stop
+#
+# Notes:
+# - Bind-mount /volume1/docker/diary/data so the SQLite db survives
+#   container restarts and is visible in File Station for easy backup.
+# - .env is read automatically by docker-compose (not committed).
+# - Backups live on /volume2 (separate volume) per user request.
+
+services:
+  diary:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voice-diary:latest
+    container_name: diary
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    env_file:
+      - .env
+    environment:
+      - DATA_DIR=/data
+      - APP_HOST=0.0.0.0
+      - APP_PORT=9000
+      - TZ=${TZ:-Asia/Shanghai}
+    volumes:
+      # SQLite + FTS5 index live here. Bind-mount so DSM File Station
+      # can see them and the backup script can read them directly.
+      - /volume1/docker/diary/data:/data
+      # Read-only mount of the backup dir so restore.sh can read tarballs
+      # without needing root.
+      - /volume2/docker-backups/diary:/backups:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=3); sys.exit(0 if r.status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
