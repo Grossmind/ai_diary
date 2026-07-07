@@ -20,6 +20,12 @@ services:
     image: voice-diary:latest
     container_name: diary
     restart: unless-stopped
+    user: "0:0"   # run as root — the bind-mounted /data dir on the NAS is owned
+                 # by the host user (cityrain, UID 1026), and remapping at the
+                 # kernel level (userns-remap) isn't enabled on DSM 6.2's
+                 # dockerd. Running as root is the simplest fix for a
+                 # single-user personal diary. Revisit if you ever expose
+                 # this publicly.
     ports:
       - "9000:9000"
     env_file:
@@ -36,6 +42,10 @@ services:
       # Read-only mount of the backup dir so restore.sh can read tarballs
       # without needing root.
       - /volume2/docker-backups/diary:/backups:ro
+    dns:
+      - 223.5.5.5
+      - 8.8.8.8
+      - 114.114.114.114
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=3); sys.exit(0 if r.status==200 else 1)"]
       interval: 30s

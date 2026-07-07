@@ -8,14 +8,14 @@ FROM python:3.11-slim AS builder
 # Faster installs + reproducible builds
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 
 WORKDIR /build
 
-# Install build deps for any wheel that needs compiling
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# All our deps (fastapi, uvicorn, pydantic, python-dotenv) ship pre-built
+# wheels for linux/amd64, so we don't need build-essential or a C compiler.
+# Using Aliyun's PyPI mirror to avoid slow/blocked upstream PyPI.
 
 COPY requirements.txt .
 RUN pip install --prefix=/install -r requirements.txt
